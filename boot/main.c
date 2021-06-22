@@ -98,6 +98,12 @@ readseg(uint32_t pa, uint32_t count, uint32_t offset)
 void
 waitdisk(void)
 {
+    /*
+    * 0x1F7端口表示状态寄存器.共8位,最高位,也就是第7位为1代表此时硬盘正忙
+    * 第6位为1时代表此时设备准备就绪
+    * 所以,读取0x1F7以后和11000000与操作,如果为01000000时,代表可以读写了
+    * 否则,继续等待
+    */
 	// wait for disk reaady
 	while ((inb(0x1F7) & 0xC0) != 0x40)
 		/* do nothing */;
