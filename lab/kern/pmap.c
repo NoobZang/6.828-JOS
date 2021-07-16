@@ -411,9 +411,13 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	size_t i;
 	for(i=0; i<size/PGSIZE; i++)
 	{
-		pte_t *pte = pgdir_walk(pgdir, va, 1);
-		if(pte == NULL) return;
-		
+		pte_t *pte = pgdir_walk(pgdir, (void *)va, 1);
+		if(pte == NULL) {
+			panic("boot_map_region(): out of memory!");
+		}
+		*pte = pa | perm | PTE_P;
+		va += PGSIZE;
+		pa += PGSIZE;	
 	}
 	
 }
@@ -447,6 +451,20 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
+	pte_t *pte = pgdir_walk(pgdir, va, 1);
+	if(pte == NULL) {
+		return -E_NO_MEM;
+	}
+
+	//如果已经有一个page映射到va，那么page_remove的时候可能把这一页加入freelist
+	//如果先加一次引用，那么这一页就不会被加入freelist，就可以继续使用
+	pp->pp_ref++;
+	
+	if(*pte & PTE_P) {
+		page_remove(pgdir, va);
+	}
+	
+	*pte = page2pa(pp) | perm | PTE_P;
 	return 0;
 }
 
@@ -465,7 +483,18 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	return NULL;
+	pte_t *pte = pgdir_walk(pgdir, va, 0);
+	if(pte == NULL || !(*pte & PTE_P)) {
+		return NULL;
+	}
+	//pte是指向一个32位的地址，高20位是对应的物理地址，低12位是权限位
+	//PTE_ADDR把*pte的高20位拿出来，然后转换成PageInfo
+	struct PageInfo *p = pa2page(PTE_ADDR(*pte));
+	
+	if(pte_store) {
+		*pte_store = pte;
+	}
+	return p;
 }
 
 //
@@ -487,6 +516,13 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+	pte_t **pte_store;
+	struct PageInfo *p = page_lookup(pgdir, va, pte_store);
+	if(p == NULL) return;
+
+	page_decref(p);
+	**pte_store = 0;
+	tlb_invalidate(pgdir, va);
 }
 
 //
