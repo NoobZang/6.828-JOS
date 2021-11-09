@@ -146,7 +146,19 @@ trap_init_percpu(void)
 	// user space on that CPU.
 	//
 	// LAB 4: Your code here:
+	
+	int cpuid = cpunum();
+	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - cpuid * (KSTKSIZE + KSTKGAP);
+	thiscpu->cpu_ts.ts_ss0 = GD_KD;
+	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
 
+	gdt[(GD_TSS0 >> 3) + cpuid] = SEG16(STS_T32A, (uint32_t) (&thiscpu->cpu_ts),
+					sizeof(struct Taskstate) - 1, 0);
+	gdt[(GD_TSS0 >> 3) + cpuid].sd_s = 0;
+
+	ltr(GD_TSS0 + (cpuid << 3));
+
+    /*
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	ts.ts_esp0 = KSTACKTOP;
@@ -161,6 +173,7 @@ trap_init_percpu(void)
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
 	ltr(GD_TSS0);
+    */
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -280,7 +293,8 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
-		assert(curenv);
+		lock_kernel();
+        assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
 		if (curenv->env_status == ENV_DYING) {
@@ -292,6 +306,8 @@ trap(struct Trapframe *tf)
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.
+        // 保存当前的寄存器值到curenv,以便后面重新从中断的地方开始运行
+        // 对应于env_run中最后一句env_pop_tf,把这些值加载到寄存器上
 		curenv->env_tf = *tf;
 		// The trapframe on the stack should be ignored from here on.
 		tf = &curenv->env_tf;
