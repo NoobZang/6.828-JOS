@@ -66,17 +66,28 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
 
+ 	addl $8, %esp                 // 跳过fault_va和tf_err
+    movl 32(%esp), %eax           // esp的值加上32是eip的地址，把eip的值放入eax
+    subl $4, 40(%esp)             // 把trap_time esp减4
+    movl 40(%esp), %edx           // 把trap_time esp减4后的结果放入edx
+    movl %eax, (%edx)             // 把eip的值放入trap_time esp减4后的位置，即trap_time esp下面的一个字
+
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
+	popal
 
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
+	addl $4, %esp      //跳过eip
+    popfl
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
+	popl %esp
 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+	ret                //即pop eip
