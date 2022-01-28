@@ -62,7 +62,34 @@ alloc_block(void)
 	// super->s_nblocks blocks in the disk altogether.
 
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
+	//panic("alloc_block not implemented");
+	
+	int i;
+	for(i = 0; i * 32 < super->s_nblocks; i++)
+	{
+		if(bitmap[i] != 0)
+		{
+			uint32_t num = bitmap[i];
+
+			//(num & (num - 1))消掉最右侧的一个1，再用num减去此结果就只剩下最右侧一个1
+			num = num - (num & (num - 1));
+
+			uint32_t j = 0;
+			while(num != 1)
+			{
+				num = num >> 1;
+				j++;
+			}
+
+			uint32_t blockno = i * 32 + j;
+			bitmap[i] &= (~(1<<j));
+			
+			flush_block(diskaddr(2 + blockno/BLKBITSIZE));
+
+			return blockno;
+		}
+	}
+
 	return -E_NO_DISK;
 }
 
@@ -151,6 +178,8 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
        // LAB 5: Your code here.
        panic("file_get_block not implemented");
+
+
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.
