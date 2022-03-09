@@ -139,7 +139,21 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+	//panic("sys_env_set_trapframe not implemented");
+
+	int r;
+	struct Env *e;
+
+	if ((r = envid2env(envid, &e, 1)) < 0)
+		return r;
+
+	//user_mem_assert(e, tf, sizeof(struct Trapframe), PTE_U);
+
+	e->env_tf = *tf;
+	e->env_tf.tf_eflags |= FL_IF;
+	e->env_tf.tf_eflags &= (~FL_IOPL_MASK);
+
+	return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -358,19 +372,15 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 
 	if((uintptr_t)srcva < UTOP && (uintptr_t)srcva % PGSIZE != 0)
 		return -E_INVAL;
-
 	int mustPerm = PTE_U | PTE_P;
 	if((uintptr_t)srcva < UTOP && (((perm | PTE_SYSCALL) != PTE_SYSCALL) || ((perm & mustPerm) != mustPerm)))
 		return -E_INVAL;
-
 	pte_t *srcpte;
 	struct PageInfo *p = page_lookup(curenv->env_pgdir, srcva, &srcpte);
 	if((uintptr_t)srcva < UTOP && p == NULL)
 		return -E_INVAL;
-
-	if(perm & PTE_W && p != NULL && !(*srcpte & PTE_W))
+	if((uintptr_t)srcva < UTOP && p != NULL && perm & PTE_W && !(*srcpte & PTE_W))
 		return -E_INVAL;
-
 	if((uintptr_t)srcva < UTOP && (uintptr_t)dstenv->env_ipc_dstva < UTOP)
 		if((r = page_insert(dstenv->env_pgdir, p, dstenv->env_ipc_dstva, perm)) < 0)
 			return r;
@@ -453,6 +463,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_ipc_try_send(a1, a2, (void *)a3, a4);
 	case SYS_ipc_recv:
 		return sys_ipc_recv((void *)a1);
+	case SYS_env_set_trapframe:
+		return sys_env_set_trapframe(a1, (struct Trapframe *)a2);
     default:
 		return -E_INVAL;
 	}

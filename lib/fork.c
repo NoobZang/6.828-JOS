@@ -71,9 +71,14 @@ duppage(envid_t envid, unsigned pn)
 	//panic("duppage not implemented");
 	
 	//拿到原来的权限位
-	int srcPerm = uvpt[pn] & 0xFFF;
-	
-	if(srcPerm & PTE_W || srcPerm & PTE_COW)
+	int srcPerm = uvpt[pn] & PTE_SYSCALL;
+
+	if(srcPerm & PTE_SHARE)
+	{
+		if((r = sys_page_map(0, (void *)(pn<<PTXSHIFT), envid, (void *)(pn<<PTXSHIFT), srcPerm)) < 0)
+			panic("sys_page_map: %e", r);
+	}
+	else if(srcPerm & PTE_W || srcPerm & PTE_COW)
 	{
 		if((r = sys_page_map(0, (void *)(pn<<PTXSHIFT), envid, (void *)(pn<<PTXSHIFT), PTE_P|PTE_U|PTE_COW)) < 0)
 			panic("sys_page_map: %e", r);

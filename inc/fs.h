@@ -33,6 +33,8 @@ struct File {
 
 	// Block pointers.
 	// A block is allocated iff its value is != 0.
+	//f_direct数组的内容是block number，而不是地址
+	//f_indirect的值也是block number，里面1024项的数值也是block number
 	uint32_t f_direct[NDIRECT];	// direct blocks
 	uint32_t f_indirect;		// indirect block
 
