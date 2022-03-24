@@ -22,9 +22,10 @@ void
 runcmd(char* s)
 {
 	char *argv[MAXARGS], *t, argv0buf[BUFSIZ];
-	int argc, c, i, r, p[2], fd, pipe_child;
+	int argc, c, i, r, p[2], fd, pipe_child, background;
 
 	pipe_child = 0;
+	background = 0;
 	gettoken(s, 0);
 
 again:
@@ -55,7 +56,16 @@ again:
 			// then close the original 'fd'.
 
 			// LAB 5: Your code here.
-			panic("< redirection not implemented");
+			//panic("< redirection not implemented");
+
+			if ((fd = open(t, O_RDONLY)) < 0) {
+				cprintf("open %s for write: %e", t, fd);
+				exit();
+			}
+			if (fd != 0) {
+				dup(fd, 0);
+				close(fd);
+			}
 			break;
 
 		case '>':	// Output redirection
@@ -102,6 +112,10 @@ again:
 				goto runit;
 			}
 			panic("| not implemented");
+			break;
+
+		case '&':
+			background = 1;
 			break;
 
 		case 0:		// String is complete
@@ -152,7 +166,8 @@ runit:
 	if (r >= 0) {
 		if (debug)
 			cprintf("[%08x] WAIT %s %08x\n", thisenv->env_id, argv[0], r);
-		wait(r);
+		if(!background)
+			wait(r);
 		if (debug)
 			cprintf("[%08x] wait finished\n", thisenv->env_id);
 	}
